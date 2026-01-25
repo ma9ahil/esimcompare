@@ -27,7 +27,7 @@ const Results = ({ results, setNav, onSelectPackage }) => {
                 <div>
                   <div style={{ fontWeight: 900, fontSize: 18 }}>My Trip</div>
                   <div className="muted small" style={{ marginTop: 6, lineHeight: 1.55 }}>
-                    Your itinerary drives coverage. We rank by: <strong>coverage</strong> → <strong>installs</strong> → <strong>price</strong>.
+                    Your itinerary drives coverage. 
                   </div>
                 </div>
                 <Badge color="gray">Global</Badge>

@@ -44,9 +44,7 @@ const PackageDetail = ({ pkg, trip, setNav, onSaveReceipt }) => {
             <Button disabled>Compare</Button>
             <Button onClick={() => onSaveReceipt(pkg)}>Save receipt</Button>
           </div>
-          <Notice>
-            <strong>Affiliate disclosure:</strong> This prototype uses placeholder affiliate links.
-          </Notice>
+
         </div>
       </Panel>
 

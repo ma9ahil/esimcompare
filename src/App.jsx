@@ -14,7 +14,7 @@ import Support from './pages/Support';
 function App() {
   const [nav, setNav] = useState("home");
   const [selectedPackageId, setSelectedPackageId] = useState(null);
-  const [theme, setTheme] = useState("dark");
+  const [theme, setTheme] = useState("light");
 
   const toggleTheme = () => {
     setTheme(prev => prev === "dark" ? "light" : "dark");

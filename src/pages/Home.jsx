@@ -1,40 +1,53 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '../components/shared';
 import { COUNTRIES } from '../data';
 import { todayISO, countryMeta } from '../utils';
 
 const Home = ({ appState, updateState, onStartSearch }) => {
   const { stops, needs, flexible, flexibleDays } = appState;
+  
   const [destInput, setDestInput] = useState("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [showInput, setShowInput] = useState(stops.length === 0);
 
-  // Handle Destination Input
-  const handleDestChange = (e) => {
-    const val = e.target.value;
-    setDestInput(val);
-    
-    // Auto-add if it matches a country code or name exactly (simple UX)
-    // Real implementation would use a dropdown
-    const match = COUNTRIES.find(c => 
-      c[0].toLowerCase() === val.toLowerCase() || 
-      c[1].toLowerCase() === val.toLowerCase()
-    );
+  const inputRef = useRef(null);
+  const isFirstLoad = useRef(true);
 
-    if (match) {
-      addStop(match[0]);
-      setDestInput("");
+  // Logic: Auto-focus the input when it appears (but do NOT open the menu yet)
+  useEffect(() => {
+    if (showInput && inputRef.current) {
+      if (!isFirstLoad.current) {
+        inputRef.current.focus();
+      }
     }
-  };
+    isFirstLoad.current = false;
+  }, [showInput]);
+
+  // Filter countries for dropdown
+  const filteredCountries = destInput 
+    ? COUNTRIES.filter(c => c[1].toLowerCase().includes(destInput.toLowerCase()) || c[0].toLowerCase().includes(destInput.toLowerCase()))
+    : COUNTRIES;
 
   const addStop = (code) => {
-    // Check if already added to avoid dupes if desired, but user might want circular trip
     const t = todayISO();
     const newStops = [...stops, { country: code, start: t, end: t }];
     updateState({ stops: newStops });
+    
+    // Reset interaction & Hide Input
+    setDestInput("");
+    setIsDropdownOpen(false);
+    setShowInput(false); 
   };
 
   const removeStop = (index) => {
     const newStops = stops.filter((_, i) => i !== index);
     updateState({ stops: newStops });
+    
+    // If we removed the last stop, show input automatically
+    if (newStops.length === 0) {
+      setShowInput(true);
+      isFirstLoad.current = false; 
+    }
   };
 
   const updateStopDate = (index, field, value) => {
@@ -44,7 +57,6 @@ const Home = ({ appState, updateState, onStartSearch }) => {
   };
 
   const toggleNeed = (key) => {
-    // Special handling for usage which is a string enum
     if (key === 'heavy' || key === 'medium' || key === 'light') {
        updateState({ needs: { ...needs, usage: key } });
     } else {
@@ -55,6 +67,14 @@ const Home = ({ appState, updateState, onStartSearch }) => {
   return (
     <div className="home-container">
       
+      {/* Invisible backdrop to close dropdown when clicking outside */}
+      {isDropdownOpen && (
+        <div 
+          className="dropdown-backdrop" 
+          onClick={() => setIsDropdownOpen(false)}
+        />
+      )}
+      
       {/* Hero Section */}
       <div className="hero">
         <h1>Let us take care of your sim needs</h1>
@@ -64,20 +84,23 @@ const Home = ({ appState, updateState, onStartSearch }) => {
         <div className="trip-builder">
           
           {/* STEP 1: DESTINATIONS */}
-          <div class="tb-step">
+          <div className="tb-step">
             <div className="tb-label">1. Where are you going?</div>
             
-            {/* List of added stops (Compact UI) */}
+            {/* List of added stops */}
             {stops.map((stop, idx) => {
               const meta = countryMeta(stop.country);
               return (
                 <div key={idx} className="stop-item">
                   <div className="stop-info">
-                    <span className="stop-flag">{meta.flag}</span>
+                    <img 
+                      src={`https://flagcdn.com/w40/${stop.country.toLowerCase()}.png`}
+                      alt={meta.name}
+                      style={{ width: 24, height: 18, borderRadius: 2, objectFit: 'cover' }}
+                    />
                     <span className="stop-name">{meta.name}</span>
                   </div>
                   
-                  {/* STEP 2: DATES (Inline) */}
                   <div className="stop-dates">
                     {!flexible ? (
                       <>
@@ -108,22 +131,63 @@ const Home = ({ appState, updateState, onStartSearch }) => {
               );
             })}
 
-            {/* Input Field */}
-            <div className="destination-input-wrap">
-              <input 
-                list="countryList"
-                className="destination-input"
-                placeholder={stops.length === 0 ? "Enter a destination (e.g. Japan)..." : "Add another destination..."}
-                value={destInput}
-                onChange={handleDestChange}
-                autoFocus={stops.length === 0}
-              />
-              <datalist id="countryList">
-                {COUNTRIES.map(c => <option key={c[0]} value={c[1]} />)}
-              </datalist>
-            </div>
+            {/* CONDITIONAL INPUT OR ADD BUTTON */}
+            {showInput ? (
+              <div className="dropdown-wrapper">
+                <input 
+                  ref={inputRef}
+                  className="destination-input"
+                  placeholder={stops.length === 0 ? "Enter a destination (e.g. Japan)..." : "Type another destination..."}
+                  value={destInput}
+                  
+                  // CHANGE: Open ONLY on click or typing, NOT on focus.
+                  onClick={() => setIsDropdownOpen(true)}
+                  onChange={(e) => {
+                    setDestInput(e.target.value);
+                    if (!isDropdownOpen) setIsDropdownOpen(true);
+                  }}
+                  // Removed onFocus handler so auto-focus doesn't pop the menu open
+                />
+
+                {isDropdownOpen && (
+                  <div className="dropdown-menu">
+                    {filteredCountries.map(([code, name]) => (
+                      <div 
+                        key={code} 
+                        className="dropdown-item" 
+                        onClick={() => addStop(code)}
+                      >
+                        <img 
+                          src={`https://flagcdn.com/w40/${code.toLowerCase()}.png`}
+                          srcSet={`https://flagcdn.com/w80/${code.toLowerCase()}.png 2x`}
+                          alt={name}
+                          className="dropdown-flag-img"
+                          loading="lazy"
+                        />
+                        <span className="dropdown-name">{name}</span>
+                      </div>
+                    ))}
+                    {filteredCountries.length === 0 && (
+                      <div style={{padding: '16px', color: 'var(--muted)', fontSize: '13px', textAlign:'center'}}>
+                        No results found
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              // The "Add Stop" Button (shown when stops exist)
+              <div className="add-stop-row">
+                <button 
+                  className="btn-add-stop"
+                  onClick={() => setShowInput(true)}
+                >
+                  + Add another destination
+                </button>
+              </div>
+            )}
             
-            {/* Flexible Toggle (Global) */}
+            {/* Flexible Toggle */}
             {stops.length > 0 && (
               <div style={{marginTop: 10, display: 'flex', gap: 10, alignItems: 'center'}}>
                  <label style={{marginBottom:0, cursor:'pointer'}} onClick={() => updateState({ flexible: !flexible })}>
@@ -149,7 +213,6 @@ const Home = ({ appState, updateState, onStartSearch }) => {
             <div className="tb-step">
               <div className="tb-label">2. What do you need?</div>
               <div className="needs-grid">
-                {/* Usage Toggles */}
                 <div 
                   className={`need-badge ${needs.usage === 'light' ? 'active' : ''}`}
                   onClick={() => toggleNeed('light')}
@@ -168,8 +231,6 @@ const Home = ({ appState, updateState, onStartSearch }) => {
                 >
                   🎥 Heavy Data
                 </div>
-                
-                {/* Feature Toggles */}
                 <div 
                   className={`need-badge ${needs.hotspot ? 'active' : ''}`}
                   onClick={() => toggleNeed('hotspot')}
@@ -186,23 +247,21 @@ const Home = ({ appState, updateState, onStartSearch }) => {
             </div>
           )}
 
-          {/* STEP 4: ACTION */}
+          {/* ACTION */}
           <div style={{ marginTop: 20 }}>
             <Button 
               style={{ width: '100%', fontSize: '16px', padding: '14px' }} 
               disabled={stops.length === 0}
               onClick={onStartSearch}
             >
-              {stops.length === 0 ? "Enter a destination above" : "Find best plans"}
+              {stops.length === 0 ? "Select a destination" : "Find best plans"}
             </Button>
           </div>
 
         </div>
-        {/* End Widget */}
-
       </div>
 
-      <div className="grid two home-grid">
+      {/* <div className="grid two home-grid">
         <div className="card" style={{ textAlign: 'center', padding: '30px 20px' }}>
           <div style={{ fontSize: '28px', marginBottom: '12px' }}>🌍</div>
           <h3 style={{ margin: '0 0 6px' }}>Global Coverage</h3>
@@ -213,7 +272,7 @@ const Home = ({ appState, updateState, onStartSearch }) => {
           <h3 style={{ margin: '0 0 6px' }}>Compare & Save</h3>
           <div className="muted small">We check Airalo, Nomad, and more for you.</div>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };

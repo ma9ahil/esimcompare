@@ -15,6 +15,7 @@ function App() {
   const [nav, setNav] = useState("home");
   const [selectedPackageId, setSelectedPackageId] = useState(null);
   const [theme, setTheme] = useState("light");
+  const [loading, setLoading] = useState(false);
 
   const toggleTheme = () => {
     setTheme(prev => prev === "dark" ? "light" : "dark");
@@ -28,11 +29,7 @@ function App() {
     tripName: "My Trip",
     flexible: false,
     flexibleDays: 14,
-    stops: [
-      { country: "TH", start: "2026-02-10", end: "2026-02-14" },
-      { country: "VN", start: "2026-02-15", end: "2026-02-19" },
-      { country: "SG", start: "2026-02-20", end: "2026-02-22" },
-    ],
+    stops: [],
     needs: { usage: "medium", hotspot: true, remote: false },
   });
 
@@ -47,6 +44,14 @@ function App() {
 
   const results = useMemo(() => computePackages({ ...state, needs: state.needs }), [state]);
 
+  // Handle the Search Flow (2s loading)
+  const handleStartSearch = () => {
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      setNav("results");
+    }, 2000); // 2 second delay
+  };
   const handleSaveReceipt = (pkg) => {
     const receipt = {
       receiptId: "r_" + Math.random().toString(36).slice(2, 10),
@@ -77,7 +82,13 @@ function App() {
 
   const renderView = () => {
     switch (nav) {
-      case "home": return <Home setNav={setNav} />;
+      case "home": 
+        return <Home 
+                 appState={state} 
+                 updateState={updateState} 
+                 setNav={setNav} 
+                 onStartSearch={handleStartSearch} 
+               />;
       case "planner": 
         return <Planner appState={{ ...state, derived }} updateState={updateState} setNav={setNav} />;
       case "results": 
@@ -102,6 +113,14 @@ function App() {
         toggleTheme={toggleTheme}
         stats={{ stopCount: derived.stopCount, days: derived.tripDays }} 
       />
+      {/* Loading Overlay */}
+      {loading && (
+        <div className="loading-overlay">
+          <div className="spinner"></div>
+          <h2>Finding best plans...</h2>
+          <p className="muted">Checking coverage and prices</p>
+        </div>
+      )}
       
       <div id="viewRoot">
         {renderView()}
